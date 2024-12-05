@@ -1,0 +1,16 @@
+{
+    "version": "1.0.1",
+    "changelog": "Reset to stable version 1.0.1",
+    "files": [
+        {
+            "path": "Khanfar-Sys.py",
+            "filename": "Khanfar-Sys.py",
+            "hash": "8e4c3fb96d0a8fc69455d7e7648206a05c7da3ce8baed0c19f39e94e9feaffe9"
+        },
+        {
+            "path": "version.py",
+            "filename": "version.py",
+            "hash": "c0e36d1c779ed801ad97392417fbd25a3b32816c11e888b31b3ccadee5b755ea"
+        }
+    ]
+}
