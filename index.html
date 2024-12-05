@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Khanfar System Updates</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Khanfar System Updates</h1>
+    <p>Current Version: <span id="version">Loading...</span></p>
+    <script>
+        fetch('version.json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('version').textContent = data.version;
+            });
+    </script>
+</body>
+</html>
