@@ -1,5 +1,11 @@
 {
-    "version": "1.0.1",
-    "changelog": "Version reset to 1.0.1",
-    "files": []
+    "version": "1.0.2",
+    "changelog": "-Add test button in gui",
+    "files": [
+        {
+            "path": "Khanfar-Sys.py",
+            "filename": "Khanfar-Sys.py",
+            "hash": "1318b73a422f1a1d02cbd3639fc5307455b8f7e6fb861280d309bc4f1ffe7049"
+        }
+    ]
 }
