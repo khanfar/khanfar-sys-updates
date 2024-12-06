@@ -23,6 +23,9 @@ import numpy as np
 import socket
 import json
 from remote_updates import RemoteUpdates
+import re
+from tkinter.simpledialog import askstring
+from subprocess import Popen, PIPE
 
 logger = logging.getLogger(__name__)
 
@@ -996,6 +999,8 @@ class DetectionSystemGUI:
         self.config = Config()
         
         self.current_language = self.config.get("language", "en")
+        self.root.title(self._translate('window_title'))  # Set title based on current language
+        
         self.cleanup_manager = CleanupManager()
         self.detection_system = None
         self.running = False
@@ -1030,6 +1035,9 @@ class DetectionSystemGUI:
         self._create_gui()
         self._load_settings()
 
+        # Check for updates automatically on startup
+        self.check_for_updates()
+        
         # Initialize detection storage
         self.stored_car_plate_detections = []
         self.stored_person_detections = []
@@ -1145,6 +1153,9 @@ class DetectionSystemGUI:
             if not os.path.exists(detection['path']):
                 continue
             
+            # Mark the detection type as present
+            current_detections[detection['type']] = True
+            
             if detection['type'] in ['car', 'plate']:
                 # Add to car/plate storage if not already present
                 if detection not in self.stored_car_plate_detections:
@@ -1157,6 +1168,9 @@ class DetectionSystemGUI:
                     self.stored_person_detections.append(detection)
                     # Keep only the most recent detections
                     self.stored_person_detections = self.stored_person_detections[-3:]  # Keep last 3 person detections
+
+        # Update sound manager with current detections BEFORE processing them
+        self.sound_manager.update_object_presence(current_detections)
 
         # Process car and plate detections
         if self.stored_car_plate_detections:
@@ -1460,43 +1474,34 @@ class DetectionSystemGUI:
         # Open the folder in File Explorer
         os.startfile(folder_path)
 
-    def check_for_updates(self):
-        """Check and apply available updates."""
+    def check_for_updates(self, manual=False):
+        """
+        Check for available updates.
+        """
         update_info = self.updater.check_for_updates()
-        if not update_info:
-            messagebox.showinfo(self._translate('check_for_updates'),
-                              f"{self._translate('no_updates')}\n{self._translate('current_version').format(self.updater.current_version)}")
-            return
-        
-        # Show update information in a dialog
-        changelog = update_info.get('changelog', 'No changelog available.')
-        files_to_update = "\n".join([f"• {f['path']}" for f in update_info['files']])
-        
-        update_message = f"""{self._translate('whats_new')}
-{changelog}
-
-{self._translate('files_to_update')}
-{files_to_update}
-
-{self._translate('install_update')}"""
-        
-        if messagebox.askyesno(self._translate('update_available'), update_message, 
-                             icon='info'):
-            # Stop detection if running
-            if self.running:
-                self.stop_detection()
-            
-            # Apply update
-            if self.updater.download_and_apply_update(update_info):
-                if messagebox.askyesno(self._translate('update_success'), 
-                                     f"{self._translate('update_success')}\n"
-                                     f"{self._translate('restart_needed')}\n\n"
-                                     f"{self._translate('restart_now')}"):
-                    self.updater.restart_application()
+        if update_info:
+            # Show pop-up notification if an update is available
+            messagebox.showinfo(
+                "Update Available",
+                f"A new update (version {update_info['version']}) is available.\n"
+                f"Changelog: {update_info['changelog']}"
+            )
+            # Proceed with update download and application
+            success = self.updater.download_and_apply_update(update_info)
+            if success:
+                messagebox.showinfo("Update Successful", "The application has been updated successfully.")
+                self.updater.restart_application()
             else:
-                messagebox.showerror(self._translate('update_available'), 
-                                   self._translate('update_failed'))
-
+                messagebox.showerror("Update Failed", "Failed to apply the update. Please try again later.")
+        elif manual:
+            # Notify the user if no updates are available only during manual check
+            messagebox.showinfo(
+                "No Updates Available",
+                f"Your application is up to date.\nCurrent Version: {self.updater.current_version}"
+            )
+        else:
+            print("No updates available.")
+        
     def open_website(self):
         """Open the Khanfar Systems website in the default browser."""
         import webbrowser
@@ -1553,7 +1558,7 @@ class DetectionSystemGUI:
         menubar.add_cascade(label=self._translate('help_menu'), menu=help_menu)
         help_menu.add_command(label=self._translate('contact_us'), command=self.show_contact_us)
         help_menu.add_command(label=self._translate('how_to_use'), command=self.show_how_to_use)
-        help_menu.add_command(label=self._translate('check_for_updates'), command=self.check_for_updates)
+        help_menu.add_command(label=self._translate('check_for_updates'), command=lambda: self.check_for_updates(manual=True))
         help_menu.add_separator()
         help_menu.add_command(label=self._translate('visit_website'), command=self.open_website)
         
@@ -1750,6 +1755,22 @@ class DetectionSystemGUI:
                                     command=self.stop_detection)
         self.stop_button.grid(row=0, column=1, padx=5, pady=5)
 
+        # Open web server button
+        self.open_web_button = ttk.Button(self.control_frame, text=self._translate('open_web_server'),
+                                         command=self.open_web_server)
+        self.open_web_button.grid(row=1, column=0, columnspan=3, pady=10)
+
+        # Add LAN IP display label below the Open Web Server button
+        self.lan_ip_label = ttk.Label(self.control_frame, text="")
+        self.lan_ip_label.grid(row=2, column=0, columnspan=3, pady=10)
+
+        # Update LAN IP display with actual IP address
+        self.update_lan_ip_display()
+
+        # Add Search for IP Cameras button below the LAN IP display
+        self.search_cameras_button = ttk.Button(self.control_frame, text=self._translate('search_ip_cameras'), command=self.search_ip_cameras)
+        self.search_cameras_button.grid(row=3, column=0, columnspan=3, pady=10)
+
         # Configure grid weights
         main_container.grid_columnconfigure(1, weight=3)
         main_container.grid_columnconfigure(2, weight=1)
@@ -1775,6 +1796,117 @@ class DetectionSystemGUI:
             self.car_counter_label.configure(text=f"Total Cars: {self.total_cars}")
             self.plate_counter_label.configure(text=f"Total Plates: {self.total_plates}")
 
+    def open_web_server(self):
+        import webbrowser
+        webbrowser.open('http://localhost:5000')
+
+    def update_lan_ip_display(self):
+        import socket
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+        self.lan_ip_label.config(text=f"{local_ip}:5000")
+
+    def search_ip_cameras(self):
+        import socket
+        from tkinter import messagebox
+        import netifaces
+        import threading
+
+        def scan_ip(target_ip, rtsp_port, results):
+            try:
+                sock = socket.create_connection((target_ip, rtsp_port), timeout=0.5)
+                results.append(target_ip)
+                sock.close()
+            except (socket.timeout, ConnectionRefusedError, OSError):
+                pass
+
+        def get_ip_range():
+            interfaces = netifaces.interfaces()
+            for interface in interfaces:
+                addresses = netifaces.ifaddresses(interface)
+                if netifaces.AF_INET in addresses:
+                    for link in addresses[netifaces.AF_INET]:
+                        ip = link['addr']
+                        netmask = link.get('netmask', '255.255.255.0')
+                        return ip, netmask
+            return None, None
+
+        def ip_to_int(ip):
+            return sum([int(part) << (8 * i) for i, part in enumerate(reversed(ip.split('.')))])
+
+        def int_to_ip(ip_int):
+            return '.'.join([str((ip_int >> (8 * i)) & 0xFF) for i in reversed(range(4))])
+
+        def get_ip_list(ip, netmask):
+            ip_int = ip_to_int(ip)
+            netmask_int = ip_to_int(netmask)
+            network = ip_int & netmask_int
+            broadcast = network | ~netmask_int & 0xFFFFFFFF
+            return [int_to_ip(i) for i in range(network + 1, broadcast)]
+
+        ip, netmask = get_ip_range()
+        if not ip:
+            messagebox.showerror(self._translate('camera_search_results'), self._translate('network_error'))
+            return
+
+        ip_list = get_ip_list(ip, netmask)
+        rtsp_port = 554
+        cameras = []
+
+        threads = []
+        results = []
+
+        for target_ip in ip_list:
+            thread = threading.Thread(target=scan_ip, args=(target_ip, rtsp_port, results))
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        if results:
+            def show_ip_list(ips):
+                def on_select(event):
+                    if listbox.curselection():
+                        selected_ip = listbox.get(listbox.curselection())
+                        if messagebox.askyesno(self._translate('ping_test'), f'{self._translate("ping_test_prompt")} {selected_ip}?'):
+                            result = self.ping_ip(selected_ip)
+                            messagebox.showinfo(self._translate('ping_test_result'), 
+                                f"{self._translate('ping_test_result_message')} {selected_ip}: {self._translate(result.lower())}")
+
+                popup = tk.Toplevel(self.root)
+                popup.title(self._translate('camera_search_results'))
+                listbox = tk.Listbox(popup, selectmode='single')
+                listbox.pack(fill='both', expand=True)
+                for ip in ips:
+                    listbox.insert('end', ip)
+
+                listbox.bind('<<ListboxSelect>>', on_select)
+                ttk.Button(popup, text='Close', command=popup.destroy).pack()
+
+            show_ip_list(results)
+        else:
+            messagebox.showinfo(self._translate('camera_search_results'), self._translate('no_cameras_found'))
+
+    def ping_ip(self, ip):
+        process = Popen(['ping', '-n', '4', ip], stdout=PIPE, stderr=PIPE)
+        stdout, stderr = process.communicate()
+        if process.returncode == 0:
+            # Parse the output for average time
+            match = re.search(r'Average = (\d+)ms', stdout.decode())
+            if match:
+                avg_time = int(match.group(1))
+                if avg_time < 50:
+                    return 'Excellent'
+                elif avg_time < 100:
+                    return 'Good'
+                else:
+                    return 'Weak'
+            else:
+                return 'Ping test failed'
+        else:
+            return 'Ping test failed'
+
 def setup_logging():
     logging.basicConfig(
         level=logging.INFO,
@@ -1785,6 +1917,6 @@ if __name__ == "__main__":
     setup_logging()
     root = tk.Tk()
     app = DetectionSystemGUI(root)
-    root.title("Khanfar Systems 2025 - Enhanced Edition")
+    root.title(app._translate('window_title'))  # Dynamically set title based on selected language
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
     app.run()
