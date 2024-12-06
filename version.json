@@ -1,16 +1,11 @@
 {
-    "version": "1.0.1",
-    "changelog": "Reset to stable version 1.0.1",
+    "version": "1.0.2",
+    "changelog": "-add b button for testing",
     "files": [
         {
             "path": "Khanfar-Sys.py",
             "filename": "Khanfar-Sys.py",
-            "hash": "8e4c3fb96d0a8fc69455d7e7648206a05c7da3ce8baed0c19f39e94e9feaffe9"
-        },
-        {
-            "path": "version.py",
-            "filename": "version.py",
-            "hash": "a7b855afeb7286ecafbcb6faaf09909bec2035d59ddbe7ea85b4b4f8953d8c09"
+            "hash": "a4fef80232f0f2959e33a3c87eb838bb6e885b2687594a120d757bd429298a43"
         }
     ]
 }
