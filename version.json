@@ -1,5 +1,11 @@
 {
-    "version": "1.0.1",
-    "changelog": "Version reset to 1.0.1",
-    "files": []
+    "version": "1.0.2",
+    "changelog": "-test b button",
+    "files": [
+        {
+            "path": "Khanfar-Sys.py",
+            "filename": "Khanfar-Sys.py",
+            "hash": "a4fef80232f0f2959e33a3c87eb838bb6e885b2687594a120d757bd429298a43"
+        }
+    ]
 }
