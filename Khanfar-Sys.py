@@ -998,6 +998,10 @@ class DetectionSystemGUI:
         self.root = root
         self.config = Config()
         
+        # Check activation status on startup
+        if not check_activation():
+            ActivationDialog(self.root)
+
         self.current_language = self.config.get("language", "en")
         self.root.title(self._translate('window_title'))  # Set title based on current language
         
@@ -1309,93 +1313,101 @@ class DetectionSystemGUI:
         self.sound_manager.update_object_presence(current_detections)
     
     def update_video(self):
+        """Update the video display"""
         if not self.running or not self.detection_system:
             return
-
-        frame, active_detections = self.detection_system.get_frame()
-        if frame is not None:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        try:
+            frame, detections = self.detection_system.get_frame()
+            if frame is not None:
+                # Clear any existing text when showing video
+                self.video_label.config(text="")
+                
+                # Convert frame to RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Check if privacy mode is enabled
+                if self.config.get_privacy_mode():
+                    # Create a blank image with privacy notice
+                    height, width = frame.shape[:2]
+                    privacy_frame = np.zeros((height, width, 3), dtype=np.uint8)
+                    
+                    # Add privacy mode text
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    text = "Privacy Mode Enabled"
+                    font_scale = 1.5
+                    thickness = 2
+                    text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
+                    
+                    # Calculate text position to center it
+                    text_x = (width - text_size[0]) // 2
+                    text_y = (height + text_size[1]) // 2
+                    
+                    # Draw text in white
+                    cv2.putText(privacy_frame, text, (text_x, text_y), font, font_scale, (255, 255, 255), thickness)
+                    
+                    # Convert to PIL Image
+                    frame = Image.fromarray(privacy_frame)
+                else:
+                    # Normal mode - show the actual frame
+                    frame = Image.fromarray(frame)
+                
+                # Convert to PhotoImage and update display
+                photo = ImageTk.PhotoImage(image=frame)
+                self.video_label.config(image=photo)
+                self.video_label.image = photo  # Keep a reference
+                
+                # Process detections if available
+                if detections:
+                    self.active_detections = detections
+                    self.update_recent_detections()
             
-            # Check if privacy mode is enabled
-            if self.config.get_privacy_mode():
-                # Create a blank image with privacy notice
-                height, width = frame.shape[:2]
-                privacy_frame = np.zeros((height, width, 3), dtype=np.uint8)
+            # Schedule next update only if still running
+            if self.running:
+                self.after_id = self.root.after(10, self.update_video)
                 
-                # Add privacy mode text
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                text = "Privacy Mode Enabled"
-                font_scale = 1.5
-                thickness = 2
-                text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
-                
-                # Calculate text position to center it
-                text_x = (width - text_size[0]) // 2
-                text_y = (height + text_size[1]) // 2
-                
-                # Draw text in white
-                cv2.putText(privacy_frame, text, (text_x, text_y), font, font_scale, (255, 255, 255), thickness)
-                
-                # Convert to PIL Image
-                image = Image.fromarray(privacy_frame)
-            else:
-                # Normal mode - show the actual frame
-                image = Image.fromarray(frame)
-                
-            photo = ImageTk.PhotoImage(image=image)
-            self.video_label.config(image=photo)
-            self.video_label.image = photo
-
-            # Update recent detections
-            self.update_recent_detections()
-
-        self.after_id = self.root.after(10, self.update_video)
+        except Exception as e:
+            logger.error(f"Error updating video: {e}")
+            if self.running:
+                self.after_id = self.root.after(1000, self.update_video)  # Retry after 1 second
 
     def start_detection(self):
         """Start the detection process."""
-        if not check_activation():
-            activation = ActivationDialog(self.root)
-            self.root.wait_window(activation.window)
-            if not check_activation():
-                messagebox.showwarning(
-                    self._translate('activation_required'),
-                    self._translate('please_activate')
-                )
-                return
-        
-        if not self.running:
-            try:
-                self.detection_system = DetectionSystem(
-                    self.config,
-                    self.device_var.get()
-                )
-                if self.detection_system.initialize():
-                    self.running = True
-                    self._update_button_states()
-                    self.update_video()
-                    logger.info("Detection system started")
-                else:
-                    messagebox.showerror(
-                        self._translate('error'),
-                        self._translate('failed_to_initialize_detection_system')
-                    )
-                    self.detection_system = None
-            except Exception as e:
-                logger.error(f"Error starting detection: {e}")
-                messagebox.showerror(
-                    self._translate('error'),
-                    f"Failed to start detection: {str(e)}"
-                )
-                self.detection_system = None
-                self.running = False
-                self._update_button_states()
-        
-    def stop_detection(self):
-        if not self.running:
+        if self.running:
             return
             
         try:
-            # Cancel the pending video update if any
+            # Initialize detection system
+            self.detection_system = DetectionSystem(self.config, self.device_var.get())
+            success = self.detection_system.initialize()
+            
+            if not success:
+                messagebox.showerror(self._translate('error'), 
+                                   self._translate('failed_to_initialize'))
+                self.detection_system = None
+                return
+            
+            self.running = True
+            self._update_button_states()
+            
+            # Start video updates
+            self.update_video()
+            
+        except Exception as e:
+            logger.error(f"Error starting detection: {e}")
+            messagebox.showerror(self._translate('error'), 
+                               f"{self._translate('failed_to_start')}: {str(e)}")
+            self.running = False
+            self.detection_system = None
+            self._update_button_states()
+
+    def stop_detection(self):
+        """Stop the detection process."""
+        if not self.running:
+            return
+        
+        try:
+            # Cancel any pending video updates
             if self.after_id:
                 self.root.after_cancel(self.after_id)
                 self.after_id = None
@@ -1407,13 +1419,41 @@ class DetectionSystemGUI:
             
             self.running = False
             self._update_button_states()
-            # Clear the video display
+            
+            # Reset the video display
             self.video_label.config(image='')
+            self.video_label.config(text="No Video Input", compound='center')
+            
+            # Clear all detection history
+            self.stored_car_plate_detections = []
+            self.stored_person_detections = []
+            
+            # Clear detection frames
+            for frame_data in self.detection_frames:
+                frame_data['label'].configure(image='')
+                frame_data['info'].configure(text='')
+            
+            # Reset counters and detection states
+            self._reset_counters()
+            self.unique_detections = {
+                'person': {},
+                'car': {},
+                'plate': {},
+                'traffic light': {}
+            }
+            self.last_detections = {
+                'person': {'time': 0, 'id': None},
+                'car': {'time': 0, 'id': None},
+                'plate': {'time': 0, 'id': None},
+                'traffic light': {'time': 0, 'id': None}
+            }
+            
             logger.info("Detection system stopped")
             
         except Exception as e:
             logger.error(f"Error stopping detection: {e}")
-            messagebox.showerror(self._translate('error'), f"Failed to stop detection cleanly: {str(e)}")
+            messagebox.showerror(self._translate('error'), 
+                               f"{self._translate('failed_to_stop')}: {str(e)}")
         finally:
             self.running = False
             self.detection_system = None
@@ -1430,10 +1470,35 @@ class DetectionSystemGUI:
         if hasattr(self, 'web_server'):
             self.web_server.shutdown()
         
-        # Stop remote control server
-        self.remote_server.stop()
+        # Stop remote server
+        if hasattr(self, 'remote_server'):
+            self.remote_server.stop()
         
         self.root.destroy()
+
+    def _on_closing(self):
+        """Handle cleanup when the window is closed"""
+        try:
+            # Stop detection if running
+            if self.running:
+                self.stop_detection()
+            
+            # Shutdown web server
+            if hasattr(self, 'web_server'):
+                self.web_server.shutdown()
+            
+            # Stop remote server
+            if hasattr(self, 'remote_server'):
+                self.remote_server.stop()
+            
+            # Destroy the root window
+            self.root.destroy()
+            
+            # Force exit the application
+            os._exit(0)
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+            os._exit(1)
 
     def _update_plate_displays(self, plate_text: str):
         """Update the license plate displays based on privacy mode"""
@@ -1676,20 +1741,24 @@ class DetectionSystemGUI:
                   command=self._save_settings).grid(row=row, column=0, columnspan=2, pady=10)
 
         # Create counter labels
-        ttk.Label(self.counter_frame, text=self._translate('total_persons')).grid(row=0, column=0, padx=5)
-        self.person_counter_label = ttk.Label(self.counter_frame, text="0")
-        self.person_counter_label.grid(row=0, column=1, padx=5)
+        counter_frame = ttk.Frame(self.counter_frame)
+        counter_frame.pack(fill='x', padx=5, pady=5)
+        self.blank_button = ttk.Button(counter_frame, text="", width=5)
+        self.blank_button.pack(side='left', padx=5)
+        ttk.Label(counter_frame, text=self._translate('total_persons')).pack(side='left', padx=10)
+        self.person_counter_label = ttk.Label(counter_frame, text="0")
+        self.person_counter_label.pack(side='left', padx=10)
         
-        ttk.Label(self.counter_frame, text=self._translate('total_cars')).grid(row=1, column=0, padx=5)
-        self.car_counter_label = ttk.Label(self.counter_frame, text="0")
-        self.car_counter_label.grid(row=1, column=1, padx=5)
+        ttk.Label(counter_frame, text=self._translate('total_cars')).pack(side='left', padx=10)
+        self.car_counter_label = ttk.Label(counter_frame, text="0")
+        self.car_counter_label.pack(side='left', padx=10)
         
-        ttk.Label(self.counter_frame, text=self._translate('total_plates')).grid(row=2, column=0, padx=5)
-        self.plate_counter_label = ttk.Label(self.counter_frame, text="0")
-        self.plate_counter_label.grid(row=2, column=1, padx=5)
+        ttk.Label(counter_frame, text=self._translate('total_plates')).pack(side='left', padx=10)
+        self.plate_counter_label = ttk.Label(counter_frame, text="0")
+        self.plate_counter_label.pack(side='left', padx=10)
         
         # Reset counter button
-        ttk.Button(self.counter_frame, text=self._translate('reset_counters') + "-B", command=self._reset_counters).grid(row=3, column=0, columnspan=2, pady=5)
+        ttk.Button(self.counter_frame, text=self._translate('reset_counters'), command=self._reset_counters).grid(row=1, column=0, columnspan=2, pady=5)
 
         # Video frame
         self.video_frame = ttk.LabelFrame(main_container, text=self._translate('video_feed'), padding="5")
