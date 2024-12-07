@@ -2,12 +2,13 @@
   "version": "1.0.2",
   "exe_version": "1.0.2",
   "exe_build": "9220fd0e",
-  "changelog": "-try test ota using new tool exe",
-  "update_time": "2024-12-07T22:59:41.696Z",
+  "changelog": "-try again ota test",
+  "update_time": "2024-12-07T23:06:39.694Z",
   "filename": "Khanfar-Sys_1.0.2_9220fd0e.exe",
   "files": [
     {
       "path": "./Khanfar-Sys_1.0.2_9220fd0e.exe",
+      "filename": "Khanfar-Sys_1.0.2_9220fd0e.exe",
       "hash": "9220fd0e",
       "chunks": [
         "Khanfar-Sys_1.0.2_9220fd0e.exe.part1",
