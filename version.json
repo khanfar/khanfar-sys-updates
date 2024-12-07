@@ -1,9 +1,23 @@
 {
-  "version": "1.0.2",
-  "exe_version": "1.0.2",
+  "version": "1.0.3",
+  "exe_version": "1.0.3",
   "exe_build": "b6627a10",
-  "changelog": "-test hash",
-  "update_time": "2024-12-07 20:44:36",
-  "filename": "Khanfar-Sys_1.0.2_b6627a10.exe",
-  "files": []
+  "changelog": "-test shrunk v1.0.3",
+  "update_time": "2024-12-07T19:58:28.841Z",
+  "filename": "Khanfar-Sys_1.0.3_b6627a10.exe",
+  "chunks": [
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part1",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part2",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part3",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part4",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part5",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part6",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part7",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part8",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part9",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part10",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part11",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part12",
+    "Khanfar-Sys_1.0.3_b6627a10.exe.part13"
+  ]
 }
