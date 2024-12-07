@@ -1,9 +1,5 @@
 {
-  "version": "1.0.2",
-  "exe_version": "1.0.2",
-  "exe_build": "b6627a10",
-  "changelog": "-test hash",
-  "update_time": "2024-12-07 20:44:36",
-  "filename": "Khanfar-Sys_1.0.2_b6627a10.exe",
-  "files": []
+    "version": "1.0.1",
+    "changelog": "Version reset to 1.0.1",
+    "files": []
 }
