@@ -1,6 +1,6 @@
 {
-    "version": "1.0.2",
-    "changelog": "-Add test button in gui",
+    "version": "1.0.3",
+    "changelog": "-test update gui",
     "files": [
         {
             "path": "Khanfar-Sys.py",
