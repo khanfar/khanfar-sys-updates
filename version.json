@@ -1,23 +1,8 @@
 {
-  "version": "1.0.2",
-  "exe_version": "1.0.2",
-  "exe_build": "9220fd0e",
-  "changelog": "-test new feature to upload exe",
-  "update_time": "2024-12-07T22:50:01.690Z",
-  "filename": "Khanfar-Sys_1.0.2_9220fd0e.exe",
-  "chunks": [
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part1",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part2",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part3",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part4",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part5",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part6",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part7",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part8",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part9",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part10",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part11",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part12",
-    "Khanfar-Sys_1.0.2_9220fd0e.exe.part13"
-  ]
+  "version": "1.0.1",
+  "exe_version": "1.0.1",
+  "changelog": "Version reset to 1.0.1",
+  "update_time": "2024-12-07T22:58:21.020Z",
+  "files": [],
+  "chunks": []
 }
