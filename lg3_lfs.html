@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EXE Update Publisher</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .left-panel {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .right-panel {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .console-log {
+            background: black;
+            color: white;
+            font-family: 'Consolas', monospace;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            border-radius: 4px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s ease;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 0;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .info-text {
+            color: #666;
+            font-size: 0.9em;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <h2>EXE Update Publisher</h2>
+            <label for="githubToken">GitHub Token:</label>
+            <input type="password" id="githubToken" placeholder="Enter your GitHub token">
+            
+            <button id="selectButton" onclick="selectFile()" disabled>Select EXE File</button>
+            <div id="fileInfo" class="info-text">No file selected</div>
+            <div id="hashInfo" class="info-text"></div>
+            
+            <label for="version">Version:</label>
+            <input type="text" id="version" placeholder="1.0.0" value="1.0.0">
+            
+            <label for="changelog">Changelog:</label>
+            <textarea id="changelog" rows="4" placeholder="Enter changelog..."></textarea>
+            
+            <button id="publishButton" onclick="publishUpdate()" disabled>Publish Update</button>
+            
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <h2>Console Log</h2>
+            <div id="consoleLog" class="console-log"></div>
+        </div>
+    </div>
+
+    <script>
+        let GITHUB_TOKEN = '';
+        const GITHUB_OWNER = 'khanfar';
+        const GITHUB_REPO = 'khanfar-sys-updates';
+        const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+        
+        let selectedExe = null;
+
+        // Add token validation
+        document.getElementById('githubToken').addEventListener('change', function() {
+            GITHUB_TOKEN = this.value;
+            validateToken();
+        });
+
+        async function validateToken() {
+            try {
+                const response = await axios.get(
+                    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`,
+                    {
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }
+                );
+                if (response.status === 200) {
+                    log('GitHub token validated successfully', 'SUCCESS');
+                    document.getElementById('selectButton').disabled = false;
+                }
+            } catch (error) {
+                log('Invalid GitHub token. Please check and try again.', 'ERROR');
+                document.getElementById('selectButton').disabled = true;
+            }
+        }
+
+        function log(message, level = "INFO") {
+            const consoleLog = document.getElementById('consoleLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            
+            let color = 'white';
+            switch(level) {
+                case 'ERROR': color = '#ff6b6b'; break;
+                case 'SUCCESS': color = '#69db7c'; break;
+                case 'PROGRESS': color = '#4dabf7'; break;
+            }
+            
+            logEntry.style.color = color;
+            logEntry.textContent = `[${timestamp}] [${level}] ${message}`;
+            consoleLog.appendChild(logEntry);
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progressFill').style.width = `${percent}%`;
+        }
+
+        async function calculateHash(file) {
+            log('Calculating file hash...');
+            const buffer = await file.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            log(`File hash: ${hashHex.substring(0, 8)}`);
+            return hashHex;
+        }
+
+        async function selectFile() {
+            try {
+                const [fileHandle] = await window.showOpenFilePicker({
+                    types: [{
+                        description: 'EXE Files',
+                        accept: {'application/x-msdownload': ['.exe']}
+                    }]
+                });
+                
+                const file = await fileHandle.getFile();
+                log(`Selected file: ${file.name}`);
+                
+                // Calculate hash
+                const hash = await calculateHash(file);
+                
+                selectedExe = {
+                    file: file,
+                    hash: hash
+                };
+                
+                document.getElementById('fileInfo').textContent = `Selected: ${file.name}`;
+                document.getElementById('hashInfo').textContent = `Hash: ${hash.substring(0, 8)}`;
+                document.getElementById('publishButton').disabled = false;
+                
+                // Get current version from version.json
+                try {
+                    const response = await axios.get(
+                        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/version.json`,
+                        {
+                            headers: {
+                                'Authorization': `token ${GITHUB_TOKEN}`,
+                                'Accept': 'application/vnd.github.v3+json'
+                            }
+                        }
+                    );
+                    
+                    if (response.status === 200) {
+                        const content = atob(response.data.content);
+                        const versionInfo = JSON.parse(content);
+                        const currentVersion = versionInfo.version;
+                        
+                        // Increment the last number
+                        const parts = currentVersion.split('.');
+                        parts[2] = String(Number(parts[2]) + 1);
+                        const nextVersion = parts.join('.');
+                        
+                        document.getElementById('version').value = nextVersion;
+                        log(`Current version: ${currentVersion}`);
+                        log(`Suggested next version: ${nextVersion}`);
+                    }
+                } catch (error) {
+                    log('Could not fetch current version. Using default.', 'ERROR');
+                }
+                
+            } catch (error) {
+                log(`Error selecting file: ${error.message}`, 'ERROR');
+            }
+        }
+
+        async function createBranch(version) {
+            const branchName = `update-${version}`;
+            
+            try {
+                // Get the SHA of the main branch
+                const mainResponse = await axios.get(
+                    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/main`,
+                    {
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }
+                );
+                
+                // Create new branch
+                await axios.post(
+                    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs`,
+                    {
+                        ref: `refs/heads/${branchName}`,
+                        sha: mainResponse.data.object.sha
+                    },
+                    {
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }
+                );
+                
+                log(`Created branch: ${branchName}`, 'SUCCESS');
+                return branchName;
+                
+            } catch (error) {
+                log(`Error creating branch: ${error.message}`, 'ERROR');
+                throw error;
+            }
+        }
+
+        async function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        async function uploadChunk(chunk, filename, index, totalChunks, branchName) {
+            const chunkName = `${filename}.part${index + 1}`;
+            const base64Data = await blobToBase64(new Blob([chunk]));
+            
+            try {
+                const response = await axios.put(
+                    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${chunkName}`,
+                    {
+                        message: `Upload chunk ${index + 1}/${totalChunks} of ${filename}`,
+                        content: base64Data,
+                        branch: branchName
+                    },
+                    {
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Accept': 'application/vnd.github.v3+json',
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+
+                if (response.status === 201) {
+                    log(`Successfully uploaded chunk ${index + 1}/${totalChunks}`, 'SUCCESS');
+                    return chunkName;
+                } else {
+                    throw new Error(`Failed to upload chunk ${index + 1}/${totalChunks}`);
+                }
+            } catch (error) {
+                log(`Error uploading chunk ${index + 1}/${totalChunks}: ${error.message}`, 'ERROR');
+                throw error;
+            }
+        }
+
+        async function updateVersionJson(versionInfo, branchName) {
+            try {
+                // First try to get the existing file to get its SHA
+                let sha = null;
+                try {
+                    const response = await axios.get(
+                        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/version.json?ref=${branchName}`,
+                        {
+                            headers: {
+                                'Authorization': `token ${GITHUB_TOKEN}`,
+                                'Accept': 'application/vnd.github.v3+json'
+                            }
+                        }
+                    );
+                    if (response.status === 200) {
+                        sha = response.data.sha;
+                    }
+                } catch (error) {
+                    // File doesn't exist, that's okay
+                    if (error.response && error.response.status !== 404) {
+                        throw error;
+                    }
+                }
+
+                // Update version.json
+                const content = btoa(JSON.stringify(versionInfo, null, 4));
+                const body = {
+                    message: `Update version.json for version ${versionInfo.version}`,
+                    content: content,
+                    branch: branchName
+                };
+
+                if (sha) {
+                    body.sha = sha;
+                }
+
+                await axios.put(
+                    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/version.json`,
+                    body,
+                    {
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }
+                );
+
+                log('Successfully updated version.json', 'SUCCESS');
+            } catch (error) {
+                log(`Error updating version.json: ${error.message}`, 'ERROR');
+                throw error;
+            }
+        }
+
+        async function createPullRequest(branchName, version, changelog) {
+            try {
+                const response = await axios.post(
+                    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls`,
+                    {
+                        title: `Update to version ${version}`,
+                        body: changelog,
+                        head: branchName,
+                        base: 'main'
+                    },
+                    {
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }
+                );
+
+                return response.data.html_url;
+            } catch (error) {
+                log(`Error creating pull request: ${error.message}`, 'ERROR');
+                throw error;
+            }
+        }
+
+        async function publishUpdate() {
+            if (!selectedExe) {
+                log('Please select an EXE file first', 'ERROR');
+                return;
+            }
+
+            const version = document.getElementById('version').value.trim();
+            const changelog = document.getElementById('changelog').value.trim();
+
+            if (!version || !changelog) {
+                log('Please fill in version number and changelog', 'ERROR');
+                return;
+            }
+
+            if (!/^\d+\.\d+\.\d+$/.test(version)) {
+                log('Version should be in format X.Y.Z (e.g., 1.0.0)', 'ERROR');
+                return;
+            }
+
+            try {
+                log('Starting update process...');
+                updateProgress(0);
+
+                const filename = selectedExe.file.name;
+                const buildId = selectedExe.hash.substring(0, 8);
+                const nameWithoutExt = filename.replace('.exe', '');
+                const versionedName = `${nameWithoutExt}_${version}_${buildId}.exe`;
+                
+                // Create version.json content
+                const versionInfo = {
+                    version: version,
+                    update_server: "https://khanfar.github.io/khanfar-sys-updates",
+                    update_interface: "https://khanfar.github.io/khanfar-sys-updates/lg3_lfs.html",
+                    files: [{
+                        path: versionedName,
+                        filename: versionedName,
+                        hash: selectedExe.hash,
+                        chunks: []
+                    }],
+                    changelog: changelog,
+                    requires_restart: true,
+                    min_version: "1.0.0",
+                    publish_date: new Date().toISOString()
+                };
+
+                // Create new branch
+                log('Creating new branch...');
+                const branchName = await createBranch(version);
+                updateProgress(10);
+
+                // Split file into chunks and upload
+                log('Splitting file into chunks...');
+                const fileBuffer = await selectedExe.file.arrayBuffer();
+                const totalChunks = Math.ceil(fileBuffer.byteLength / CHUNK_SIZE);
+                
+                for (let i = 0; i < totalChunks; i++) {
+                    const start = i * CHUNK_SIZE;
+                    const end = Math.min(start + CHUNK_SIZE, fileBuffer.byteLength);
+                    const chunk = fileBuffer.slice(start, end);
+                    
+                    log(`Uploading chunk ${i + 1}/${totalChunks}...`);
+                    const chunkName = await uploadChunk(chunk, versionedName, i, totalChunks, branchName);
+                    versionInfo.files[0].chunks.push(chunkName);
+                    
+                    const progress = Math.round((i + 1) * 70 / totalChunks) + 10;
+                    updateProgress(progress);
+                }
+
+                // Update version.json
+                log('Updating version.json...');
+                await updateVersionJson(versionInfo, branchName);
+                updateProgress(90);
+
+                // Create pull request
+                log('Creating pull request...');
+                const prUrl = await createPullRequest(branchName, version, changelog);
+                updateProgress(100);
+
+                log(`Pull request created: ${prUrl}`, 'SUCCESS');
+                log('Update published successfully!', 'SUCCESS');
+                document.getElementById('publishButton').disabled = true;
+
+            } catch (error) {
+                log(`Error during upload: ${error.message}`, 'ERROR');
+                if (error.response) {
+                    log(`Response status: ${error.response.status}`, 'ERROR');
+                    log(`Response data: ${JSON.stringify(error.response.data)}`, 'ERROR');
+                }
+                updateProgress(0);
+            }
+        }
+    </script>
+</body>
+</html>
