@@ -1,10 +1,31 @@
 {
-    "version": "1.0.1",
+    "version": "1.0.2",
     "update_server": "https://khanfar.github.io/khanfar-sys-updates",
     "update_interface": "https://khanfar.github.io/khanfar-sys-updates/lg3_lfs.html",
-    "files": [],
-    "changelog": "Version reset to 1.0.1",
+    "files": [
+        {
+            "path": "Khanfar-Sys_1.0.2_9220fd0e.exe",
+            "filename": "Khanfar-Sys_1.0.2_9220fd0e.exe",
+            "hash": "9220fd0e439f9bbdcc086798a1f7625fc691a49076b7209e4b421712c7afe27d",
+            "chunks": [
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part1",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part2",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part3",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part4",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part5",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part6",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part7",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part8",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part9",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part10",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part11",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part12",
+                "Khanfar-Sys_1.0.2_9220fd0e.exe.part13"
+            ]
+        }
+    ],
+    "changelog": "-test old gui using ota",
     "requires_restart": true,
     "min_version": "1.0.0",
-    "publish_date": "2024-12-08T18:40:04+02:00"
+    "publish_date": "2024-12-08T18:07:11.755Z"
 }
