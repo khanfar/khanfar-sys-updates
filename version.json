@@ -1,8 +1,5 @@
 {
-  "version": "1.0.1",
-  "exe_version": "1.0.1",
-  "changelog": "Reset repository to base version 1.0.1",
-  "update_time": "2024-12-08T06:00:20.686Z",
-  "files": [],
-  "chunks": []
+    "version": "1.0.1",
+    "changelog": "Version reset to 1.0.1",
+    "files": []
 }
